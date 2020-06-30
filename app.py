@@ -38,6 +38,7 @@ db = setupDB("covid-ticketing-db")
 STORE_TABLE = "store"
 CUSTOMER_TABLE = "customer"
 OWNER_TABLE = "owner"
+TWILIO_CRED_TABLE = "twilio_credentials"
 
 
 ns_api_v1 = api.namespace('', description='CRUD operations for Store')
@@ -358,7 +359,7 @@ class Reservations(Resource):
                 })
 
                 # send Twilio Message
-                sendMessage(selectedCustomer['name'], selectedCustomer['phone'],
+                sendMessage(db, selectedCustomer['name'], selectedCustomer['phone'],
                             selectedStore['name'], data['date'], data['start-time'], data['end-time'], " is confirmed.")
 
                 return Response('{"message":"Successfully saved the reservation."}', status=201, mimetype='application/json')
@@ -415,7 +416,7 @@ class Reservations(Resource):
                 selectedStore = db["store"].find_one(
                     {"_id": ObjectId(data['store_id'])})
                 # send Twilio Message
-                sendMessage(selectedCustomer['name'], selectedCustomer['phone'],
+                sendMessage(db, selectedCustomer['name'], selectedCustomer['phone'],
                             selectedStore['name'], data['date'], data['start-time'], data['end-time'], "is deleted.")
                 return {'message': 'Successfully deleted the reservation.'}, 204
 
@@ -466,7 +467,7 @@ class Customer(Resource):
         try:
             data = api.payload
             # insert into db
-            if not db['owner'].find_one({"username": data['username']}):
+            if not db['customer'].find_one({"username": data['username']}):
                 inserted_docId = db['customer'].insert_one({
                     'name': data['name'],
                     'phone': data['phone'],
@@ -475,7 +476,7 @@ class Customer(Resource):
                     'reservations': []
                 })
                 return Response('{"message":"Succesfully added.","_id":%s}' % dumps(inserted_docId.inserted_id), status=201, mimetype='application/json')
-            return Response('{"message":"Username already exists"}', status=200, mimetype='application/json')
+            return Response('{"message":"Username already used. Please provide a different username."}', status=400, mimetype='application/json')
 
         except Exception as e:
             print("Error occured:", str(e.args))
@@ -530,7 +531,7 @@ class Owner(Resource):
                     'password': pbkdf2_sha256.hash(data['password']),
                 })
                 return Response('{"message":"Succesfully added.","_id":%s}' % dumps(inserted_docId.inserted_id), status=201, mimetype='application/json')
-            return Response('{"message":"Username already exists"}', status=200, mimetype='application/json')
+            return Response('{"message":"Username already used. Please provide a different username."}', status=400, mimetype='application/json')
 
         except Exception as e:
             print("Error occured:", str(e.args))
